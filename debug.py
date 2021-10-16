@@ -65,6 +65,7 @@ def parse_args(args):
     parser.add_argument('--no-color-augmentation', help = 'Do not use colorspace augmentation', action = 'store_true')
     parser.add_argument('--no-6dof-augmentation', help = 'Do not use 6DoF augmentation', action = 'store_true')
     parser.add_argument('--phi', help = 'Hyper parameter phi', default = 0, type = int, choices = (0, 1, 2, 3, 4, 5, 6))
+    parser.add_argument('--image-index', help = 'Select image', default = 0, type = int)
 
     return parser.parse_args(args)
 
@@ -79,11 +80,13 @@ def main(args = None):
     # parse arguments
     if args is None:
         args = sys.argv[1:]
+    print(args)
     args = parse_args(args)
 
     # create the generator
     generator = create_generator(args)
 
+    print(args)
     run(generator, args)
 
 
@@ -97,7 +100,7 @@ def create_generator(args):
         Generator
         
     """
-
+    print("creating generator")
     if args.dataset_type == 'linemod':
         generator = LineModGenerator(
             args.linemod_path,
@@ -134,11 +137,15 @@ def run(generator, args):
         generator: The generator to debug.
         args: parseargs args object.
     """
+    print("running")
+
     while True:
         # display images, one at a time
-        for i in range(generator.size()):
+        for i in [args.image_index]:
             # load the data
+            print("loading image")
             image       = generator.load_image(i)
+            print("loaded image")
             annotations = generator.load_annotations(i)
             mask = generator.load_mask(i)
             camera_matrix = generator.load_camera_matrix(i)
@@ -168,10 +175,16 @@ def run(generator, args):
         
                 print("Generator idx: {}".format(i))
                 
-            cv2.imshow('Image', image)
-            if cv2.waitKey() == ord('q'):
-                cv2.destroyAllWindows()
-                return
+            from PIL import Image
+            from IPython.display import display
+            print("Showing debug image")
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            display(Image.fromarray(image))
+            return
+            # cv2.imshow('Image', image)
+            # if cv2.waitKey() == ord('q'):
+            #     cv2.destroyAllWindows()
+            #     return
 
 
 if __name__ == '__main__':
