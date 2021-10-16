@@ -29,6 +29,7 @@ import cv2
 import yaml
 import random
 import copy
+import natsort
 from plyfile import PlyData
 
 from generators.common import Generator
@@ -45,7 +46,7 @@ class LineModGenerator(Generator):
                  object_id,
                  image_extension = ".png",
                  shuffle_dataset = True,
-                  symmetric_objects = {"glue", 11, "eggbox", 10}, #set with names and indices of symmetric objects
+                  symmetric_objects = {42: 42}, #set with names and indices of symmetric objects
                  **kwargs):
         """
         Initializes a Linemod generator
@@ -57,6 +58,7 @@ class LineModGenerator(Generator):
              symmetric_objects: set with names and indices of symmetric objects
         
         """
+        print(kwargs)
         self.dataset_base_path = dataset_base_path
         self.dataset_path = os.path.join(self.dataset_base_path, "data")
         self.model_path = os.path.join(self.dataset_base_path, "models")
@@ -349,6 +351,7 @@ class LineModGenerator(Generator):
         
         #load all images which are in the dataset split (train/test)
         all_filenames = [filename for filename in os.listdir(all_images_path) if self.image_extension in filename and filename.replace(self.image_extension, "") in data_examples]
+        all_filenames = natsort.natsorted(all_filenames)
         image_paths = [os.path.join(all_images_path, filename) for filename in all_filenames]
         mask_paths = [img_path.replace("rgb", "mask") for img_path in image_paths]
         depth_paths = [img_path.replace("rgb", "depth") for img_path in image_paths]
