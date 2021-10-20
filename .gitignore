@@ -114,3 +114,6 @@ tests/
 val2017*
 *.txt
 evaluation
+weights
+models
+utils/compute_overlap.c
