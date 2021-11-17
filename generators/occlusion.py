@@ -71,7 +71,6 @@ class OcclusionGenerator(Generator):
         self.class_to_name = {0: "corning96well"}
         self.name_to_class = {val: key for key, val in self.class_to_name.items()}
         self.object_ids_to_class_labels, self.class_labels_to_object_ids = self.map_object_ids_to_class_labels(self.object_ids, self.name_to_class)
-        self.name_to_mask_value = {"corning96well": 51}
         
         #check and set the rotation representation and the number of parameters to use
         self.init_num_rotation_parameters(**kwargs)
@@ -491,7 +490,8 @@ class OcclusionGenerator(Generator):
                            'bboxes': np.zeros((num_annos, 4)),
                            'rotations': np.zeros((num_annos, num_all_rotation_parameters)),
                            'translations': np.zeros((num_annos, self.translation_parameter)),
-                           'translations_x_y_2D': np.zeros((num_annos, 2))}
+                           'translations_x_y_2D': np.zeros((num_annos, 2)),
+                           'mask_values': np.zeros((num_annos,))}
             
             mask = cv2.imread(mask_path)
 
@@ -500,7 +500,7 @@ class OcclusionGenerator(Generator):
                 #get the class label for the occlusion object id
                 annotations["labels"][i] = self.object_ids_to_class_labels[gt["obj_id"]]
                 #get bbox from mask
-                annotations["bboxes"][i, :], found_object = self.get_bbox_from_mask(mask, mask_value = self.name_to_mask_value[self.class_to_name[self.object_ids_to_class_labels[gt["obj_id"]]]])
+                annotations["bboxes"][i, :], found_object = self.get_bbox_from_mask(mask, mask_value=annotations["mask_values"][i])
                 if not found_object:
                     print("\nWarning: Did not find object in mask!")
                     # print(mask_path)
@@ -515,6 +515,7 @@ class OcclusionGenerator(Generator):
                                                                                         rotation_vector = self.transform_rotation(np.array(gt["cam_R_m2c"]), "axis_angle"),
                                                                                         translation_vector = np.array(gt["cam_t_m2c"]),
                                                                                         camera_matrix = info["cam_K_np"])
+                annotations["mask_values"][i] = gt['mask']
             
             all_annotations.append(annotations)
         
