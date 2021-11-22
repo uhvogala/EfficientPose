@@ -499,8 +499,11 @@ class OcclusionGenerator(Generator):
                 #fill in the values
                 #get the class label for the occlusion object id
                 annotations["labels"][i] = self.object_ids_to_class_labels[gt["obj_id"]]
+                # add mask values from the dataset
+                annotations["mask_values"][i] = gt['mask']
                 #get bbox from mask
                 annotations["bboxes"][i, :], found_object = self.get_bbox_from_mask(mask, mask_value=annotations["mask_values"][i])
+                
                 if not found_object:
                     print("\nWarning: Did not find object in mask!")
                     # print(mask_path)
@@ -515,8 +518,7 @@ class OcclusionGenerator(Generator):
                                                                                         rotation_vector = self.transform_rotation(np.array(gt["cam_R_m2c"]), "axis_angle"),
                                                                                         translation_vector = np.array(gt["cam_t_m2c"]),
                                                                                         camera_matrix = info["cam_K_np"])
-                annotations["mask_values"][i] = gt['mask']
-            
+                
             all_annotations.append(annotations)
         
         return all_annotations
