@@ -35,6 +35,7 @@ limitations under the License.
 import argparse
 import sys
 import cv2
+from pathlib import Path
 
 from generators.linemod import LineModGenerator
 from generators.occlusion import OcclusionGenerator
@@ -111,6 +112,7 @@ def create_generator(args):
             rotation_representation = args.rotation_representation,
             use_colorspace_augmentation = not args.no_color_augmentation,
             use_6DoF_augmentation = not args.no_6dof_augmentation,
+            scale_6DoF_augmentation = (1.0, 1.0),
             phi = args.phi,
         )
     elif args.dataset_type == 'occlusion':
@@ -138,53 +140,46 @@ def run(generator, args):
         args: parseargs args object.
     """
     print("running")
+    # load the data
+    print("loading image {}".format(args.image_index))
+    i, image_path = next(filter(lambda p: int(Path(p[1]).stem) == args.image_index,  enumerate(generator.image_paths)))
+    image       = generator.load_image(i)
+    print("loaded image")
+    annotations = generator.load_annotations(i)
+    mask = generator.load_mask(i)
+    camera_matrix = generator.load_camera_matrix(i)
+    if len(annotations['labels']) > 0 :
+        # apply random transformations
+        image, annotations = generator.random_transform_group_entry(image, annotations, mask, camera_matrix)
 
-    while True:
-        # display images, one at a time
-        for i in [args.image_index]:
-            # load the data
-            print("loading image")
-            image       = generator.load_image(i)
-            print("loaded image")
-            annotations = generator.load_annotations(i)
-            mask = generator.load_mask(i)
-            camera_matrix = generator.load_camera_matrix(i)
-            if len(annotations['labels']) > 0 :
-                # apply random transformations
-                image, annotations = generator.random_transform_group_entry(image, annotations, mask, camera_matrix)
-    
-                anchors = anchors_for_shape(image.shape, anchor_params = None)
-                positive_indices, _, max_indices = compute_gt_annotations(anchors[0], annotations['bboxes'])
-                
-                #switch image RGB to BGR again
-                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    
-                # draw anchors on the image
-                if args.anchors:
-                    draw_boxes(image, anchors[0][positive_indices], (255, 255, 0), thickness=1)
-    
-                # draw annotations on the image
-                if args.annotations:
-                    draw_annotations(image,
-                                     annotations,
-                                     class_to_bbox_3D = generator.get_bbox_3d_dict(),
-                                     camera_matrix = camera_matrix,
-                                     label_to_name = generator.label_to_name,
-                                     draw_bbox_2d = args.draw_2d_bboxes,
-                                     draw_name = args.draw_class_names)
+        anchors = anchors_for_shape(image.shape, anchor_params = None)
+        positive_indices, _, max_indices = compute_gt_annotations(anchors[0], annotations['bboxes'])
         
-                print("Generator idx: {}".format(i))
-                
-            from PIL import Image
-            from IPython.display import display
-            print("Showing debug image")
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            display(Image.fromarray(image))
-            return
-            # cv2.imshow('Image', image)
-            # if cv2.waitKey() == ord('q'):
-            #     cv2.destroyAllWindows()
-            #     return
+        #switch image RGB to BGR again
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+        # draw anchors on the image
+        if args.anchors:
+            draw_boxes(image, anchors[0][positive_indices], (255, 255, 0), thickness=1)
+
+        # draw annotations on the image
+        if args.annotations:
+            draw_annotations(image,
+                                annotations,
+                                class_to_bbox_3D = generator.get_bbox_3d_dict(),
+                                camera_matrix = camera_matrix,
+                                label_to_name = generator.label_to_name,
+                                draw_bbox_2d = args.draw_2d_bboxes,
+                                draw_name = args.draw_class_names)
+
+        print("Generator idx: {}".format(i))
+        
+    from PIL import Image
+    from IPython.display import display
+    print("Showing debug image")
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    display(Image.fromarray(image))
+    return
 
 
 if __name__ == '__main__':
