@@ -30,6 +30,23 @@ from typeguard import typechecked
 from typing import Union, Callable
 
 
+
+class CustomConcat(keras.layers.Layer):
+    """
+    Concatenation layer
+    """        
+    def __init__(self, *args, **kwargs):
+      super(CustomConcat, self).__init__(*args, **kwargs)
+
+    def call(self, inputs):
+      return tf.concat(inputs, axis = -1)
+
+    def get_config(self):
+        config = super(CustomConcat, self).get_config()
+        return config
+
+
+
 class BatchNormalization(keras.layers.BatchNormalization):
     """
     Identical to keras.layers.BatchNormalization, but adds the option to freeze parameters.

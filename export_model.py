@@ -1,10 +1,45 @@
 import argparse
 import sys
 from model import build_EfficientPose
+from tensorflow.python.keras.utils import generic_utils
+from tensorflow import keras
+from tensorflow.compat.v2.keras import models
+from layers import (
+    ClipBoxes, 
+    RegressBoxes, 
+    FilterDetections, 
+    wBiFPNAdd, 
+    BatchNormalization, 
+    RegressTranslation, 
+    CalculateTxTy, 
+    GroupNormalization,
+    CustomConcat
+)
+from initializers import PriorProbability
 
 
 """Export EfficientPose model as a SavedModel
 """
+
+
+class FixedDropout(keras.layers.Dropout):
+
+    def __init__(self, *args, **kwargs):
+        super(FixedDropout, self).__init__(*args, **kwargs)
+
+    def _get_noise_shape(self, inputs):
+        if self.noise_shape is None:
+            return self.noise_shape
+
+        symbolic_shape = keras.backend.shape(inputs)
+        noise_shape = [symbolic_shape[axis] if shape is None else shape
+                        for axis, shape in enumerate(self.noise_shape)]
+        return tuple(noise_shape)
+
+    def get_config(self):
+        config = super(FixedDropout, self).get_config()
+        return config
+
 
 
 def build_model(weights_dir, phi, num_classes, score_threshold):
@@ -43,7 +78,27 @@ def build_model(weights_dir, phi, num_classes, score_threshold):
 def main(args):
     model, image_size = build_model(args.weights, args.phi, 1, 0.5)
     print(model)
-    model.save(args.export, save_format='tf')
+    print(generic_utils.get_custom_objects())
+    models.save_model(model, args.export, save_format='tf', include_optimizer=False)
+    # model.save(args.export, save_format='tf', signatures=signatures, include_optimizer=False)
+    # print(model.get_config())
+    # model.save(args.export + '.h5', save_format='h5')
+    # model.save_weights(args.export + '_weights.h5', save_format='h5')
+
+    # keras.models.load_model(args.export, custom_objects={
+    #     'ClipBoxes': ClipBoxes, 
+    #     'RegressBoxes': RegressBoxes, 
+    #     'FilterDetections': FilterDetections, 
+    #     'wBiFPNAdd': wBiFPNAdd, 
+    #     'BatchNormalization': BatchNormalization, 
+    #     'RegressTranslation': RegressTranslation, 
+    #     'CalculateTxTy': CalculateTxTy, 
+    #     'GroupNormalization': GroupNormalization,
+    #     'FixedDropout': FixedDropout,
+    #     'PriorProbability': PriorProbability,
+    #     'CustomConcat': CustomConcat
+    # })
+
 
 
 parser = argparse.ArgumentParser(description="Export EfficientPose model.")

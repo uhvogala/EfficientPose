@@ -45,22 +45,29 @@ def main():
     allow_gpu_growth_memory()
 
     #input parameter
-    path_to_images = "/Datasets/Linemod_preprocessed/data/02/rgb/"
+    path_to_images = "/mnt/hgfs/VMShare/preprocessed/data/42/rgb"
     image_extension = ".png"
     phi = 0
-    path_to_weights = "./weights/phi_0_occlusion_best_ADD(-S).h5"
-    save_path = "./predictions/occlusion/" #where to save the images or None if the images should be displayed and not saved
+    path_to_weights = "/mnt/hgfs/VMShare/phi_0_linemod_best_ADD-S.h5"
+    save_path = "./predictions/microplate/" #where to save the images or None if the images should be displayed and not saved
     # save_path = None
-    class_to_name = {0: "ape", 1: "can", 2: "cat", 3: "driller", 4: "duck", 5: "eggbox", 6: "glue", 7: "holepuncher"} #Occlusion
+    class_to_name = {0: "corning96well"} #Occlusion
     #class_to_name = {0: "driller"} #Linemod use a single class with a name of the Linemod objects
     score_threshold = 0.5
     translation_scale_norm = 1000.0
-    draw_bbox_2d = False
-    draw_name = False
+    draw_bbox_2d = True
+    draw_name = True
     #for the linemod and occlusion trained models take this camera matrix and these 3d models. in case you trained a model on a custom dataset you need to take the camera matrix and 3d cuboids from your custom dataset.
-    camera_matrix = get_linemod_camera_matrix()
-    name_to_3d_bboxes = get_linemod_3d_bboxes()
-    class_to_3d_bboxes = {class_idx: name_to_3d_bboxes[name] for class_idx, name in class_to_name.items()} 
+    # camera_matrix = get_linemod_camera_matrix()
+    camera_matrix = np.array([[
+        320.25492350260413, 0.0, 319.5
+    ],[
+        0.0, 320.25492350260413, 239.5
+    ],[
+        0.0, 0.0, 1.0
+    ]])
+    name_to_model_info = {0: {'diameter': 154.34742132143256, 'min_x': -63.86999785900116, 'min_y': -2.6164578784219046e-15, 'min_z': -42.729999870061874, 'size_x': 127.73999571800232, 'size_y': 14.22000024467707, 'size_z': 85.45999974012375}}
+    class_to_3d_bboxes = {name: convert_bbox_3d(model_info) for name, model_info in name_to_model_info.items()}
     
     num_classes = len(class_to_name)
     
@@ -75,6 +82,7 @@ def main():
     model, image_size = build_model_and_load_weights(phi, num_classes, score_threshold, path_to_weights)
     
     #inferencing
+    image_list = [image_list[0]]
     for image_filename in tqdm(image_list):
         #load image
         image_path = os.path.join(path_to_images, image_filename)

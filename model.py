@@ -46,7 +46,7 @@ from tensorflow.keras import models
 from tensorflow.keras import backend
 from tfkeras import EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6
 
-from layers import ClipBoxes, RegressBoxes, FilterDetections, wBiFPNAdd, BatchNormalization, RegressTranslation, CalculateTxTy, GroupNormalization
+from layers import ClipBoxes, RegressBoxes, FilterDetections, wBiFPNAdd, BatchNormalization, RegressTranslation, CalculateTxTy, GroupNormalization, CustomConcat
 from initializers import PriorProbability
 from utils.anchors import anchors_for_shape
 import numpy as np
@@ -352,7 +352,7 @@ def single_BiFPN_merge_step(feature_map_other_level, feature_maps_current_level,
         feature_map_resampled = layers.MaxPooling2D(pool_size = 3, strides = 2, padding = 'same')(feature_map_other_level)
     
     merged_feature_map = wBiFPNAdd(name = f'fpn_cells/cell_{idx_BiFPN_layer}/fnode{node_idx}/add')(feature_maps_current_level + [feature_map_resampled])
-    merged_feature_map = layers.Activation(lambda x: tf.nn.swish(x))(merged_feature_map)
+    merged_feature_map = layers.Activation('swish')(merged_feature_map)
     merged_feature_map = SeparableConvBlock(num_channels = num_channels,
                                             kernel_size = 3,
                                             strides = 1,
@@ -453,7 +453,7 @@ class BoxNet(models.Model):
         self.head = layers.SeparableConv2D(filters = self.num_anchors * self.num_values, name = f'{self.name}/box-predict', **options)
         
         self.bns = [[BatchNormalization(freeze = freeze_bn, momentum = MOMENTUM, epsilon = EPSILON, name = f'{self.name}/box-{i}-bn-{j}') for j in range(3, 8)] for i in range(self.depth)]
-        self.activation = layers.Lambda(lambda x: tf.nn.swish(x))
+        self.activation = layers.Activation('swish')
         self.reshape = layers.Reshape((-1, self.num_values))
         self.level = 0
 
@@ -491,7 +491,7 @@ class ClassNet(models.Model):
         self.head = layers.SeparableConv2D(filters = self.num_classes * self.num_anchors, bias_initializer = PriorProbability(probability = 0.01), name = f'{self.name}/class-predict', **options)
 
         self.bns = [[BatchNormalization(freeze = freeze_bn, momentum = MOMENTUM, epsilon = EPSILON, name = f'{self.name}/class-{i}-bn-{j}') for j in range(3, 8)] for i in range(self.depth)]
-        self.activation = layers.Lambda(lambda x: tf.nn.swish(x))
+        self.activation = layers.Activation('swish')
         self.reshape = layers.Reshape((-1, self.num_classes))
         self.activation_sigmoid = layers.Activation('sigmoid')
         self.level = 0
@@ -545,7 +545,7 @@ class IterativeRotationSubNet(models.Model):
         else: 
             self.norm_layer = [[[BatchNormalization(freeze = freeze_bn, momentum = MOMENTUM, epsilon = EPSILON, name = f'{self.name}/iterative-rotation-sub-{k}-{i}-bn-{j}') for j in range(3, 8)] for i in range(self.depth)] for k in range(self.num_iteration_steps)]
 
-        self.activation = layers.Lambda(lambda x: tf.nn.swish(x))
+        self.activation = layers.Activation('swish')
 
     def call(self, inputs, **kwargs):
         feature, level = inputs
@@ -608,7 +608,7 @@ class RotationNet(models.Model):
                                                           num_groups_gn = self.num_groups_gn,
                                                           name = "iterative_rotation_subnet")
 
-        self.activation = layers.Lambda(lambda x: tf.nn.swish(x))
+        self.activation = layers.Activation('swish')
         self.reshape = layers.Reshape((-1, num_values))
         self.level = 0
         self.add = layers.Add()
@@ -669,7 +669,7 @@ class IterativeTranslationSubNet(models.Model):
         else: 
             self.norm_layer = [[[BatchNormalization(freeze = freeze_bn, momentum = MOMENTUM, epsilon = EPSILON, name = f'{self.name}/iterative-translation-sub-{k}-{i}-bn-{j}') for j in range(3, 8)] for i in range(self.depth)] for k in range(self.num_iteration_steps)]
 
-        self.activation = layers.Lambda(lambda x: tf.nn.swish(x))
+        self.activation = layers.Activation('swish')
 
 
     def call(self, inputs, **kwargs):
@@ -734,7 +734,7 @@ class TranslationNet(models.Model):
                                                              num_groups_gn = self.num_groups_gn,
                                                              name = "iterative_translation_subnet")
 
-        self.activation = layers.Lambda(lambda x: tf.nn.swish(x))
+        self.activation = layers.Activation('swish')
         self.reshape_xy = layers.Reshape((-1, 2))
         self.reshape_z = layers.Reshape((-1, 1))
         self.level = 0
@@ -818,7 +818,8 @@ def apply_subnets_to_feature_maps(box_net, class_net, rotation_net, translation_
     #concat rotation and translation outputs to transformation output to have a single output for transformation loss calculation
     #standard concatenate layer throws error that shapes does not match because translation shape dim 2 is known via translation_anchors and rotation shape dim 2 is None
     #so just use lambda layer with tf concat
-    transformation = layers.Lambda(lambda input_list: tf.concat(input_list, axis = -1), name="transformation")([rotation, translation])
+    # transformation = layers.Lambda(lambda input_list: tf.concat(input_list, axis = -1), name="transformation")([rotation, translation])
+    transformation = CustomConcat(name="transformation")([rotation, translation])
 
     return classification, bbox_regression, rotation, translation, transformation, bboxes
     
