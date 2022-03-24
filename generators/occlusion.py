@@ -42,10 +42,10 @@ class OcclusionGenerator(Generator):
     """
     def __init__(self,
                  dataset_base_path,
-                 object_ids = {"ape": 1, "can": 5, "cat": 6, "driller": 8, "duck": 9, "eggbox": 10, "glue": 11, "holepuncher": 12}, #dictionary with the names and object ids of the occlusion dataset
+                 object_ids = {"corning96well": 42}, #dictionary with the names and object ids of the occlusion dataset
                  image_extension = ".png",
                  shuffle_dataset = True,
-                  symmetric_objects = {"glue", 11, "eggbox", 10}, #set with names and indices of symmetric objects
+                  symmetric_objects = {"corning96well", 42}, #set with names and indices of symmetric objects
                  **kwargs):
         """
         Initializes a Occlusion generator
@@ -65,20 +65,12 @@ class OcclusionGenerator(Generator):
         self.translation_parameter = 3
         self.symmetric_objects = symmetric_objects
         self.object_ids = object_ids
-        self.object_id = 2 #hardcored for occlusion
+        self.object_id = 42 #hardcored for occlusion
         
         #set the class and name dict for mapping each other
-        self.class_to_name = {0: "ape", 1: "can", 2: "cat", 3: "driller", 4: "duck", 5: "eggbox", 6: "glue", 7: "holepuncher"}
+        self.class_to_name = {0: "corning96well"}
         self.name_to_class = {val: key for key, val in self.class_to_name.items()}
         self.object_ids_to_class_labels, self.class_labels_to_object_ids = self.map_object_ids_to_class_labels(self.object_ids, self.name_to_class)
-        self.name_to_mask_value = {"ape": 21,
-                                   "can": 106,
-                                   "cat": 128,
-                                   "driller": 170,
-                                   "duck": 191,
-                                   "eggbox": 213,
-                                   "glue": 234,
-                                   "holepuncher": 255}
         
         #check and set the rotation representation and the number of parameters to use
         self.init_num_rotation_parameters(**kwargs)
@@ -498,7 +490,8 @@ class OcclusionGenerator(Generator):
                            'bboxes': np.zeros((num_annos, 4)),
                            'rotations': np.zeros((num_annos, num_all_rotation_parameters)),
                            'translations': np.zeros((num_annos, self.translation_parameter)),
-                           'translations_x_y_2D': np.zeros((num_annos, 2))}
+                           'translations_x_y_2D': np.zeros((num_annos, 2)),
+                           'mask_values': np.zeros((num_annos,))}
             
             mask = cv2.imread(mask_path)
 
@@ -506,8 +499,11 @@ class OcclusionGenerator(Generator):
                 #fill in the values
                 #get the class label for the occlusion object id
                 annotations["labels"][i] = self.object_ids_to_class_labels[gt["obj_id"]]
+                # add mask values from the dataset
+                annotations["mask_values"][i] = gt['mask']
                 #get bbox from mask
-                annotations["bboxes"][i, :], found_object = self.get_bbox_from_mask(mask, mask_value = self.name_to_mask_value[self.class_to_name[self.object_ids_to_class_labels[gt["obj_id"]]]])
+                annotations["bboxes"][i, :], found_object = self.get_bbox_from_mask(mask, mask_value=annotations["mask_values"][i])
+                
                 if not found_object:
                     print("\nWarning: Did not find object in mask!")
                     # print(mask_path)
@@ -522,7 +518,7 @@ class OcclusionGenerator(Generator):
                                                                                         rotation_vector = self.transform_rotation(np.array(gt["cam_R_m2c"]), "axis_angle"),
                                                                                         translation_vector = np.array(gt["cam_t_m2c"]),
                                                                                         camera_matrix = info["cam_K_np"])
-            
+                
             all_annotations.append(annotations)
         
         return all_annotations
